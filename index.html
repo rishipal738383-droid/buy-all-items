@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rajat Bhai — Professional Pic Store</title>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<style>
+  :root{
+    --accent:#0b74ff;
+    --bg:#f6f8fb;
+    --card:#ffffff;
+    --muted:#6b7280;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter, system-ui, Arial, sans-serif;background:var(--bg);color:#0b1220}
+  .wrap{max-width:1100px;margin:18px auto;padding:18px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  header h1{margin:0;font-size:20px}
+  header .small{color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:18px}
+  .card{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 8px 24px rgba(12,20,30,0.06);display:flex;flex-direction:column}
+  .card img{width:100%;height:140px;object-fit:cover;border-radius:8px}
+  .meta{padding-top:10px;flex:1}
+  .title{font-weight:700}
+  .desc{color:var(--muted);font-size:13px;margin-top:6px}
+  .price{font-weight:800;margin-top:10px}
+  .btn{background:var(--accent);color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;margin-top:10px;font-weight:700}
+  .btn.secondary{background:#efefef;color:#111}
+  .footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+
+  /* Modal */
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:60;padding:16px}
+  .modal.show{display:flex}
+  .modal-card{background:#fff;padding:16px;border-radius:12px;width:420px;max-width:98%;box-shadow:0 10px 30px rgba(12,20,30,0.12)}
+  .qr{display:flex;justify-content:center;margin:8px 0}
+  .qr img{width:210px;height:210px;border-radius:8px;object-fit:contain}
+  label{display:block;margin-top:8px;font-size:13px}
+  input[type=text],input[type=email],input[type=file]{width:100%;padding:8px;border-radius:8px;border:1px solid #e6eef9;margin-top:6px}
+  .small{font-size:13px;color:var(--muted)}
+  .unlocked{background:#e9fff0;border:1px solid #bdf0c6;padding:12px;border-radius:8px;margin-top:10px}
+  .center{display:flex;justify-content:center;gap:8px;margin-top:12px}
+  @media (max-width:520px){ .card img{height:120px} .modal-card{padding:12px} .qr img{width:180px;height:180px} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>🔥 Rajat Bhai Pic Store</h1>
+        <div class="small">Pay with UPI — instant unlock after proof upload</div>
+      </div>
+      <div class="small">UPI: <strong>7404088242@ybl</strong></div>
+    </header>
+
+    <main>
+      <div id="grid" class="grid"></div>
+    </main>
+
+    <div class="footer">
+      Tip: To add/remove items open the HTML and edit the <code>products</code> array near top of script.
+    </div>
+  </div>
+
+  <!-- BUY MODAL -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <h3 id="m-title">Buy</h3>
+
+      <div class="qr" id="qrWrap">
+        <img id="qrImg" src="" alt="UPI QR">
+      </div>
+
+      <div style="text-align:center" class="small">
+        Send amount to UPI ID: <b id="upiIdText">7404088242@ybl</b>
+      </div>
+
+      <form id="buyForm">
+        <input type="hidden" id="p-id">
+        <input type="hidden" id="p-file">
+        <input type="hidden" id="p-title">
+        <input type="hidden" id="p-price">
+
+        <label>आपका नाम</label>
+        <input type="text" id="buyer-name" placeholder="Your name" required>
+
+        <label>आपका ईमेल</label>
+        <input type="email" id="buyer-email" placeholder="you@example.com" required>
+
+        <label>Txn ID (optional)</label>
+        <input type="text" id="buyer-txn" placeholder="UPI txn id">
+
+        <label>Payment screenshot (required)</label>
+        <input type="file" id="buyer-proof" accept="image/*" required>
+
+        <div class="center">
+          <button type="button" class="btn" onclick="submitProof()">I have paid & Upload Proof</button>
+          <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
+        </div>
+
+        <div id="after" style="display:none">
+          <div id="unlockBox" class="unlocked">
+            <div id="unlockText"><strong>Processing...</strong></div>
+            <div class="small" style="margin-top:8px">Note: This demo uses client-side unlock. For real auto delivery configure server-side verification (I can do that).</div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+/*
+  Single-file professional frontend store.
+  - Products are in the products array below. Add up to 100 items.
+  - UPI ID set to 7404088242@ybl (provided).
+  - QR generated using Google Chart API from upi://pay link.
+  - This is frontend-only: proof is not sent to server. If you want server save + email, ask me for PHP version.
+*/
+
+// ====== PRODUCTS: edit/add items here ======
+const products = [
+  { id:'p1', title:'Premium Pic Pack 1', price:50, image:'https://images.pexels.com/photos/1704488/pexels-photo-1704488.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=300', file:'https://example.com/files/pack1.zip', description:'5 high-quality pics + info' },
+  { id:'p2', title:'Premium Pic Pack 2', price:60, image:'https://images.pexels.com/photos/414612/pexels-photo-414612.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=300', file:'https://example.com/files/pack2.zip', description:'10 premium pics' },
+  { id:'p3', title:'Exclusive Detail Pack 3', price:80, image:'https://images.pexels.com/photos/248797/pexels-photo-248797.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=300', file:'https://example.com/files/pack3.zip', description:'High-value exclusive pack' },
+  { id:'p4', title:'Quick Pack 4', price:30, image:'https://via.placeholder.com/600x400?text=Pack+4', file:'https://example.com/files/pack4.zip', description:'Budget pack' },
+  { id:'p5', title:'Gold Pack 5', price:120, image:'https://via.placeholder.com/600x400?text=Pack+5', file:'https://example.com/files/pack5.zip', description:'Best-selling pack' },
+  { id:'p6', title:'Starter Pack 6', price:40, image:'https://via.placeholder.com/600x400?text=Pack+6', file:'https://example.com/files/pack6.zip', description:'Good for starters' },
+  { id:'p7', title:'Pro Pack 7', price:90, image:'https://via.placeholder.com/600x400?text=Pack+7', file:'https://example.com/files/pack7.zip', description:'Pro-level pictures' },
+  { id:'p8', title:'Mega Pack 8', price:150, image:'https://via.placeholder.com/600x400?text=Pack+8', file:'https://example.com/files/pack8.zip', description:'Huge value bundle' },
+  { id:'p9', title:'Value Pack 9', price:55, image:'https://via.placeholder.com/600x400?text=Pack+9', file:'https://example.com/files/pack9.zip', description:'Popular value pack' },
+  { id:'p10', title:'Limited Pack 10', price:200, image:'https://via.placeholder.com/600x400?text=Pack+10', file:'https://example.com/files/pack10.zip', description:'Limited edition' },
+  { id:'p11', title:'Sample Pack 11', price:35, image:'https://via.placeholder.com/600x400?text=Pack+11', file:'https://example.com/files/pack11.zip', description:'Trial pack' },
+  { id:'p12', title:'Ultimate Pack 12', price:250, image:'https://via.placeholder.com/600x400?text=Pack+12', file:'https://example.com/files/pack12.zip', description:'All-in-one' }
+];
+// ===========================================
+
+const UPI_ID = '7404088242@ybl';
+const MERCHANT_NAME = 'Rajat%20Store'; // used in UPI link
+
+// render grid
+const grid = document.getElementById('grid');
+products.forEach(p=>{
+  const div = document.createElement('div');
+  div.className = 'card item';
+  div.innerHTML = `
+    <img src="${p.image}" alt="${escapeHtml(p.title)}">
+    <div class="meta">
+      <div class="title">${escapeHtml(p.title)}</div>
+      <div class="desc">${escapeHtml(p.description||'')}</div>
+      <div class="price">₹ ${p.price}</div>
+    </div>
+    <button class="btn" onclick='openModal("${p.id}")'>Buy</button>
+  `;
+  grid.appendChild(div);
+});
+
+// modal logic
+function openModal(pid){
+  const p = products.find(x=>x.id===pid);
+  if(!p) return alert('Product not found');
+  document.getElementById('m-title').innerText = Buy: ${p.title};
+  document.getElementById('p-id').value = p.id;
+  document.getElementById('p-file').value = p.file;
+  document.getElementById('p-title').value = p.title;
+  document.getElementById('p-price').value = p.price;
+
+  // create upi link and QR image (Google Chart)
+  const upiLink = upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${MERCHANT_NAME}&am=${encodeURIComponent(p.price)}&cu=INR;
+  const qrImg = 'https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=' + encodeURIComponent(upiLink);
+  document.getElementById('qrImg').src = qrImg;
+  document.getElementById('upiIdText').innerText = UPI_ID;
+  // reset form
+  document.getElementById('buyer-name').value = '';
+  document.getElementById('buyer-email').value = '';
+  document.getElementById('buyer-txn').value = '';
+  document.getElementById('buyer-proof').value = '';
+  document.getElementById('after').style.display = 'none';
+  document.getElementById('unlockText').innerHTML = '<strong>Processing...</strong>';
+  // show modal
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal(){ document.getElementById('modal').classList.remove('show'); }
+
+// handle proof "upload" (client-side demo)
+function submitProof(){
+  const name = document.getElementById('buyer-name').value.trim();
+  const email = document.getElementById('buyer-email').value.trim();
+  const txn = document.getElementById('buyer-txn').value.trim();
+  const proof = document.getElementById('buyer-proof').files[0];
+  const pid = document.getElementById('p-id').value;
+  const pfile = document.getElementById('p-file').value;
+  const ptitle = document.getElementById('p-title').value;
+  const pprice = document.getElementById('p-price').value;
+
+  if(!name || !email || !proof){
+    alert('Name, email aur screenshot zaroori hai.');
+    return;
+  }
+
+  // show processing UI
+  document.getElementById('after').style.display = 'block';
+  document.getElementById('unlockText').innerHTML = <b>Thanks ${escapeHtml(name)}.</b><br>We received your proof (client-side demo). Unlocking download...;
+
+  // simulate verification delay
+  setTimeout(()=>{
+    // reveal download link (in real site, this should be emailed/served by server after verification)
+    const box = document.getElementById('unlockText');
+    box.innerHTML = `<b>Payment received (demo)</b><br>
+      Your download link: <br>
+      <a href="${pfile}" target="_blank" style="color:var(--accent);font-weight:700">Download ${escapeHtml(ptitle)}</a>
+      <div class="small" style="margin-top:8px">Download link is publicly accessible. For private delivery ask me for server-side version.</div>`;
+  }, 1200);
+}
+
+// small helper
+function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+</script>
+</body>
+</html>
