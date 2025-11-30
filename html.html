@@ -1,0 +1,197 @@
+<!--
+Digital Details Shop - single-file HTML
+Made for: Rajat bhai
+What it does:
+ - Simple responsive storefront for selling 'digital details' (files, codes, PDFs, images, etc.)
+ - Product list is defined in the products array (you can add 50-100 items there)
+ - Cart + checkout builds a total amount and opens a UPI payment link (upi://) when user clicks Pay
+ - Replace UPI_ID, UPI_NAME and optionally add a QR image for easier payment scanning
+ - This is client-side only (HTML/CSS/JS). For security, delivery of paid digital content should be done via a server or authenticated download links after verifying payment. This template only demonstrates the front-end + UPI deep-link generation and basic flow.
+
+How to use quickly:
+ 1. Open this file in a code editor (VS Code) and replace the UPI_ID constant with your UPI ID (example: yourid@okaxis).
+ 2. Edit the products array to add up to 50-100 items. Each product can have title, price (INR), description, and downloadLink (optional).
+ 3. Host this file on any static host (GitHub Pages / Netlify / Vercel / your hosting). For secure delivery, set up a server-side webhook to verify payments and provide download links.
+ 4. For testing on mobile: clicking Pay will try to open the installed UPI app via deep link. On desktop it will show the UPI link and your UPI ID to copy.
+
+NOTE (important):
+ - UPI deep links depend on the user's device and installed apps. This front-end cannot verify payment success. To actually confirm payment and automatically deliver items, you need a server-side integration (Payment gateway with callback or UPI PSP API) or ask users to email transaction UPI reference and verify manually.
+ - This template is legal and safe. Do not promise earnings — earnings depend on your marketing, pricing, traffic, and product quality.
+-->
+
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Digital Details Shop - Rajat bhai</title>
+  <style>
+    /* Minimal clean styling */
+    :root{--accent:#0b5cff;--muted:#666}
+    body{font-family:Inter, system-ui, Arial, sans-serif; margin:0; background:#f6f8fb; color:#111}
+    header{background:white; padding:18px 20px; box-shadow:0 2px 6px rgba(20,20,40,0.04); display:flex; align-items:center; justify-content:space-between}
+    header h1{font-size:18px; margin:0}
+    .container{max-width:1100px;margin:28px auto;padding:0 16px}
+    .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px}
+    .card{background:white;border-radius:12px;padding:14px; box-shadow:0 6px 18px rgba(20,20,40,0.04)}
+    .card h3{margin:6px 0}
+    .price{font-weight:700;font-size:16px;color:var(--accent)}
+    button{background:var(--accent); color:white;border:0;padding:8px 12px;border-radius:8px; cursor:pointer}
+    .muted{color:var(--muted); font-size:13px}
+    .cart{position:fixed; right:18px; bottom:18px; width:360px; max-width:92%;}
+    .cart .cart-inner{background:white;padding:12px;border-radius:12px; box-shadow:0 10px 30px rgba(20,20,40,0.12)}
+    .cart h4{margin:0 0 8px 0}
+    .cart-items{max-height:260px; overflow:auto; margin-bottom:8px}
+    .cart-item{display:flex;justify-content:space-between; margin-bottom:8px}
+    .row{display:flex;gap:8px;align-items:center}
+    .qty{width:36px}
+    .small{font-size:13px}
+    footer{margin:48px 0 120px; text-align:center; color:var(--muted)}
+    @media (max-width:520px){ header h1{font-size:15px} }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Digital Details Shop — Rajat bhai</h1>
+    <div class="muted">Sell digital details · Add 50–100 items in products array</div>
+  </header>
+
+  <main class="container">
+    <section>
+      <p class="muted">Select items and click <strong>Add to Cart</strong>. At checkout, user will get UPI payment link. After payment, verify manually or with a server to deliver files.</p>
+    </section>
+
+    <section class="grid" id="productsGrid">
+      <!-- products injected by JS -->
+    </section>
+  </main>
+
+  <div class="cart" id="cartBox">
+    <div class="cart-inner">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h4>Cart</h4>
+        <div class="muted small">Items: <span id="cartCount">0</span></div>
+      </div>
+      <div class="cart-items" id="cartItems"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="muted">Total</div>
+        <div class="price">₹<span id="cartTotal">0</span></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="payNow">Pay with UPI</button>
+        <button id="clearCart" style="background:#ddd;color:#222">Clear</button>
+      </div>
+      <div style="margin-top:10px" class="small muted">UPI Payment opens installed UPI app on mobile. On desktop please copy the UPI ID and pay manually.</div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="muted">Template: Edit products array in code. For automatic delivery use server-side verification.</div>
+  </footer>
+
+  <script>
+    // ====== CONFIG ======
+    // Replace with your UPI ID and display name
+    const UPI_ID = 'yourupi@bank'; // <-- replace
+    const UPI_NAME = 'Rajat Bhai';
+    // optional: UPI QR image path (hosted) to show on checkout page if you want
+    const UPI_QR_IMG = ''; // e.g. 'images/upi_qr.png'
+
+    // Products list: add up to 50-100 items here. price is in INR (integer or float)
+    const products = [
+      { id: 'p1', title: 'Secret Pack A', price: 49, desc: 'Short guide + 5 details', downloadLink: '' },
+      { id: 'p2', title: 'VIP Bundle', price: 199, desc: '50 premium details', downloadLink: '' },
+      { id: 'p3', title: 'Mega Pack', price: 499, desc: '200 items + bonus', downloadLink: '' },
+      { id: 'p4', title: 'Single Detail', price: 15, desc: 'Single high-value detail', downloadLink: '' },
+      { id: 'p5', title: 'Pro Membership (1 month)', price: 999, desc: 'Access to new details', downloadLink: '' },
+      { id: 'p6', title: 'Custom Request', price: 1499, desc: 'We build for you (manual deliver)', downloadLink: '' }
+    ];
+
+    // ====== END CONFIG ======
+
+    // Simple cart
+    const cart = {};
+
+    function renderProducts(){
+      const grid = document.getElementById('productsGrid');
+      grid.innerHTML = '';
+      products.forEach(p => {
+        const card = document.createElement('div'); card.className='card';
+        card.innerHTML = `<h3>${p.title}</h3>
+          <div class="muted small">${p.desc || ''}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+            <div class="price">₹${p.price}</div>
+            <div style="display:flex;gap:8px">
+              <button onclick="addToCart('${p.id}')">Add to Cart</button>
+            </div>
+          </div>`;
+        grid.appendChild(card);
+      })
+    }
+
+    function addToCart(id){
+      const p = products.find(x=>x.id===id);
+      if(!p) return;
+      if(cart[id]) cart[id].qty++;
+      else cart[id] = { ...p, qty: 1 };
+      updateCartUI();
+    }
+
+    function updateCartUI(){
+      const itemsBox = document.getElementById('cartItems');
+      itemsBox.innerHTML = '';
+      let total=0; let count=0;
+      Object.values(cart).forEach(ci => {
+        total += ci.price * ci.qty; count += ci.qty;
+        const div = document.createElement('div'); div.className='cart-item';
+        div.innerHTML = `<div style="flex:1"><strong>${ci.title}</strong><div class='muted small'>₹${ci.price} × ${ci.qty}</div></div>
+          <div class='row'><input class='qty' type='number' min='1' value='${ci.qty}' onchange="changeQty('${ci.id}',this.value)" /><button onclick="removeItem('${ci.id}')" style='background:#ff6b6b'>X</button></div>`;
+        itemsBox.appendChild(div);
+      });
+      document.getElementById('cartTotal').textContent = total.toFixed(2);
+      document.getElementById('cartCount').textContent = count;
+    }
+
+    function changeQty(id,val){
+      val = parseInt(val) || 1;
+      if(cart[id]){ cart[id].qty = val; updateCartUI(); }
+    }
+    function removeItem(id){ delete cart[id]; updateCartUI(); }
+    document.getElementById('clearCart').addEventListener('click', ()=> { for(const k in cart) delete cart[k]; updateCartUI(); });
+
+    // Build UPI deep link and attempt to open it
+    function payWithUpi(){
+      const total = Number(document.getElementById('cartTotal').textContent) || 0;
+      if(total <= 0){ alert('Cart is empty'); return; }
+      // UPI deep link format (basic)
+      // upi://pay?pa=VPA&pn=Name&am=Amount&cu=INR&tn=Note
+      const amount = total.toFixed(2);
+      const upiLink = upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(UPI_NAME)}&am=${encodeURIComponent(amount)}&cu=INR&tn=${encodeURIComponent('Order from Digital Details Shop')};
+
+      // On mobile, opening window.location.href will prompt UPI apps.
+      // We try to open the link. On desktop, show fallback modal with UPI ID and amount.
+      // Try to open
+      window.location.href = upiLink;
+
+      // Also show a fallback after a short delay (some browsers block). We'll show a simple prompt with UPI text to copy.
+      setTimeout(()=>{
+        const fallback = confirm(If your UPI app didn't open, click OK to copy UPI details for manual payment.\n\nUPI ID: ${UPI_ID}\nAmount: ₹${amount});
+        if(fallback){
+          copyTextToClipboard(UPI ID: ${UPI_ID}\nName: ${UPI_NAME}\nAmount: ₹${amount}\nNote: Order from Digital Details Shop);
+          alert('Copied UPI details. After payment, share the UPI TXN reference to get access/delivery.');
+        }
+      }, 800);
+    }
+
+    function copyTextToClipboard(text){
+      try{ navigator.clipboard.writeText(text); } catch(e){ console.warn('copy failed', e); }
+    }
+
+    document.getElementById('payNow').addEventListener('click', payWithUpi);
+
+    // Ready
+    renderProducts(); updateCartUI();
+
+  </script>
+</body>
+</html>
